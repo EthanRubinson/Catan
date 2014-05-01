@@ -4,25 +4,30 @@ open Util
 open Print
 
 
-type playerInfo = 
-{
-	playerBase :player;
-	move:int;
-	totalpoints:int;
-}
+
 
 type game_info = 
 {
-	intersectionArr: intersection array;
+  
 	playerNum :int;
-	playerArray : playerInfo array;
+	playerPointList : int list;
 }
 
 type game = state * game_info
 
-
 let state_of_game g = fst g
-let game_of_state s = (s,Something)
+
+let game_of_state s = 
+  let (board,playerlist,turn,next) = s in
+
+  let rec playerRecord lst accLst =
+  match lst with
+  |[] -> accLst
+  |h::t -> playerRecord t (0::accLst)
+            in
+
+  let gameI = {playerNum = (List.length playerlist); playerPointList = (playerRecord playerlist [])} in
+  (s,gameI)
 
 
 let init_game () = game_of_state (gen_initial_state())
@@ -60,21 +65,19 @@ let handle_move s m = failwith "testing"
 	|Action(a) -> (None, s) **)
 
 
-let presentation g = 
+let presentation g =  
   let (board, player_list, turn, next) = state_of_game g in
-  let active_player = player_list.active in
-
-  let hide_cards_for_player =
-    fun (player, (i, cards), t) -> 
-  	  	if player != active_player then 
+  let active_player = turn.active in
+  let hide_cards_for_player : player -> player =
+    function (player, (i, cards), t) -> 
+  	  if player != active_player then 
   	    	(player, (i, hide cards), t)
   		else 
   			(player, (i, cards), t)
   in
-
-  let new_player_list = List.map hide_cards_for_player player_list in
+  let new_player_list : player list = List.map hide_cards_for_player player_list in
   let new_state = (board, new_player_list, turn, next) in
-  game_of_state new_state
+    game_of_state new_state 
   
   (**EXTRA METHODS --- KATE **)
 
