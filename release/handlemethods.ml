@@ -22,11 +22,11 @@ let valid_town_spot lst p1 =
 
   (**sets ith element in intersect list to settlement**)
   let setIthEleSet lst p1 set c=
-    let rec ithhelper lst i acc=
+    let rec ithhelper lst i =
     match lst with
-    [] ->  acc
-    |h::t -> if (i = p1) then ithhelper t (i+1) acc@[Some(c,set)] else ithhelper t (i+1) acc@t in
-    ithhelper lst 0 []
+    [] ->  []
+    |h::t -> if (i = p1) then (Some(c,set))::(ithhelper t (i+1)) else h::(ithhelper t (i+1))  in
+    ithhelper lst 0 
 
 (**get index of from list**)
 let getIndexOf lst index = 
@@ -43,14 +43,14 @@ let getIndexOf lst index =
     let adList = (adjacent_points p1) in
     List.mem p2 adList
 
-(** checks if road does not exist true if does false if not**)  
-  let roadDoesExist rdList p1 p2 = 
+(** true if road is valid, false otherwise **)
+let valid_road_position rdList p1 p2 = 
     let rec roadhelper rdList p1 p2 = 
     match rdList with
-    [] -> false
+    [] -> true
     |(c,(p3,p4))::t -> 
     (
-      if ((p3 = p1 && p4 = p2) || (p3 = p2 && p4 = p1)) then true else roadhelper t p1 p2
+      if ((p3 = p1 && p4 = p2) || (p3 = p2 && p4 = p1)) then false else roadhelper t p1 p2
     )
   in roadhelper rdList p1 p2
 
@@ -60,7 +60,7 @@ let random_road p rdList c=
     let rec valid_list pointlist acc= 
       match pointlist with
       |[] -> acc
-      |h::t -> if (roadDoesExist rdList p h) then valid_list t acc else valid_list t (h::acc) in
+      |h::t -> if (valid_road_position rdList p h = false) then valid_list t acc else valid_list t (h::acc) in
     match (pick_random (valid_list adpoints [])) with
     |None -> []
     |Some(x) -> [(c,(p,x))]
@@ -107,7 +107,36 @@ let update_resources playerList color intersectionList roadList p1 hexList=
 
   (**updates turn color**)
 
-  let update_next (tn:turn):next = 
-     (next_turn (tn.active), InitialRequest)
+  let update_next (tn:turn) rd:next = 
+    if (List.length rd > 8) then (next_turn (tn.active), ActionRequest) 
+   else if (List.length rd = 4) then ((tn.active), InitialRequest) 
+ else if (List.length rd = 8) then ((tn.active), ActionRequest) 
+    else if (List.length rd > 4 && List.length rd < 8 ) then (prev_turn (tn.active), InitialRequest) 
+    else  (next_turn (tn.active), InitialRequest)
 
-(**END OF SECTION **)
+
+  let update_next_turn_color (tn:turn) rd:turn = 
+    let newcolor = next_turn tn.active in
+    let prev_newcolor = prev_turn tn.active in
+  if (List.length rd > 4 && List.length rd < 8 )  then 
+  {active= prev_newcolor; 
+    dicerolled= tn.dicerolled; cardplayed= tn.cardplayed; 
+    cardsbought= tn.cardsbought; 
+    tradesmade= tn.tradesmade; pendingtrade= tn.pendingtrade} 
+  else if (List.length rd = 4 || List.length rd = 8)  then
+  {active= tn.active; 
+    dicerolled= tn.dicerolled; cardplayed= tn.cardplayed; 
+    cardsbought= tn.cardsbought; 
+    tradesmade= tn.tradesmade; pendingtrade= tn.pendingtrade} 
+  else
+     {active= newcolor; 
+    dicerolled= tn.dicerolled; cardplayed= tn.cardplayed; 
+    cardsbought= tn.cardsbought; 
+    tradesmade= tn.tradesmade; pendingtrade= tn.pendingtrade}
+
+  let update_next_turn_standard tn = 
+    let newcolor = next_turn tn.active in
+     {active= newcolor; 
+    dicerolled= tn.dicerolled; cardplayed= tn.cardplayed; 
+    cardsbought= tn.cardsbought; 
+    tradesmade= tn.tradesmade; pendingtrade= tn.pendingtrade}
