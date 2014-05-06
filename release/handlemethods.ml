@@ -18,7 +18,7 @@ let valid_town_spot lst p1 =
   match pointlist with
   |[] -> true
   |h::t -> if (ithhelper lst 0 h) then checkadpoints t else false in
-  if (ithhelper lst 0 p1 = true && checkadpoints adpoints = true) then true else false
+ ((ithhelper lst 0 p1) && (checkadpoints adpoints )) 
 
   (**sets ith element in intersect list to settlement**)
   let setIthEleSet lst p1 set c=
@@ -134,9 +134,16 @@ let update_resources playerList color intersectionList roadList p1 hexList=
     cardsbought= tn.cardsbought; 
     tradesmade= tn.tradesmade; pendingtrade= tn.pendingtrade}
 
-  let update_next_turn_standard tn = 
-    let newcolor = next_turn tn.active in
-     {active= newcolor; 
-    dicerolled= tn.dicerolled; cardplayed= tn.cardplayed; 
+  let update_dice tn dr = 
+     {active= tn.active; 
+    dicerolled= Some(dr); cardplayed= tn.cardplayed; 
     cardsbought= tn.cardsbought; 
     tradesmade= tn.tradesmade; pendingtrade= tn.pendingtrade}
+
+(**finds next random open spot**)
+let random_open_town_spot interList =
+  let rec random_helper lst i = 
+  match lst with
+  [] -> failwith "should not be possible"
+  |h::t -> if valid_town_spot interList i then i else random_helper t (i+1) in
+  random_helper interList 0
