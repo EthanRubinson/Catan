@@ -68,10 +68,10 @@ let handle_move s m =
                 let rand_num = match (pick_random list_rand) with |Some x -> x |None -> failwith "should not happen" in
                 let piece1 = if (piece > -1 && piece < 19) then piece else rand_num in
                 match colorOp with 
-                |None ->  (None,((((hex,port),strctures,dck, discd, piece1),pLst, tn, (next_turn tn.active, ActionRequest)),gi)) 
+                |None ->  (None,((((hex,port),strctures,dck, discd, piece1),pLst, update_turn tn nxt, (next_turn tn.active, ActionRequest)),gi)) 
                         
-                |Some c -> if (check_color_ad c piece intersList) then (None,((((hex,port),strctures,dck, discd, piece1),remove_one pLst c, tn, (next_turn tn.active, ActionRequest)),gi))  
-                else (None,((((hex,port),strctures,dck, discd, piece1),pLst, tn, (next_turn tn.active, ActionRequest)),gi)) 
+                |Some c -> if (check_color_ad c piece intersList) then (None,((((hex,port),strctures,dck, discd, piece1),remove_one pLst c, update_turn tn nxt, (next_turn tn.active, ActionRequest)),gi))  
+                else (None,((((hex,port),strctures,dck, discd, piece1),pLst, update_turn tn nxt, (next_turn tn.active, ActionRequest)),gi)) 
               ) 
 	|DiscardMove(cost1) -> (print_endline "discardMove"; 
     let nPlayList = discard_cost cost1 nxtColor pLst in 
@@ -94,8 +94,49 @@ let handle_move s m =
         update_resources_playerlist dr pLst intersList hex, update_dice tn dr, (next_turn tn.active, ActionRequest)),gi)))
     |MaritimeTrade (m) -> (None, s)
     |DomesticTrade (d)-> (None, s)
-    |BuyBuild (b)-> print_endline "building action";  (None,((((hex,port),build_method b strctures,dck, discd, robber),pLst, tn, (next_turn tn.active, ActionRequest)),gi))
-    |PlayCard (pc)-> (None, s)
+    |BuyBuild (b)-> print_endline "building action";  build_method b s
+    |PlayCard (pc)-> print_endline "playcard";
+      (match pc with
+      |PlayKnight(piece,colorOp)-> 
+              (
+                let list_rand = [0;1;2;3;4;5;6;7;8;9;10;11;12;13;14;15;16;17;18] in
+                let rand_num = match (pick_random list_rand) with |Some x -> x |None -> failwith "should not happen" in
+                let piece1 = if (piece > -1 && piece < 19) then piece else rand_num in
+                match colorOp with 
+                |None ->  (None,((((hex,port),strctures,dck, discd, piece1),update_trophy pLst tn.active, update_turn tn nxt, (next_turn tn.active, ActionRequest)),gi)) 
+                        
+                |Some c -> if (check_color_ad c piece intersList) then (None,((((hex,port),strctures,dck, discd, piece1),update_trophy (remove_one pLst c) tn.active, update_turn tn nxt, (next_turn tn.active, ActionRequest)),gi))  
+                else (None,((((hex,port),strctures,dck, discd, piece1),update_trophy pLst tn.active, update_turn tn nxt, (next_turn tn.active, ActionRequest)),gi)) 
+              ) 
+      |PlayRoadBuilding (rd,rd1) -> 
+            (
+              let (c,(p1,p2)) = rd in
+                if (valid_road_position rdList p1 p2 && check_road_connects c rdList p1 p2 ) then
+                 (let newrd_lst = ((c,(p1,p2))::rdList) in
+                match rd1 with
+                |Some rd -> 
+                  (
+                    let (c,(p1,p2)) = rd in
+                    if (valid_road_position newrd_lst p1 p2 && check_road_connects c newrd_lst p1 p2 ) then
+                    (None,((((hex,port),(intersList, (c,(p1,p2))::newrd_lst),dck, discd, robber),pLst , tn, (next_turn tn.active, ActionRequest)),gi))
+                    else
+                    (None,((((hex,port),(intersList, newrd_lst),dck, discd, robber),pLst , tn, (next_turn tn.active, ActionRequest)),gi))
+                  )
+                |None -> (None,((((hex,port),(intersList, newrd_lst),dck, discd, robber),pLst , tn, (next_turn tn.active, ActionRequest)),gi))
+                )
+               else 
+                (None,((((hex,port),(intersList,rdList),dck, discd, robber),pLst , tn, (next_turn tn.active, ActionRequest)),gi))
+              )
+      |PlayYearOfPlenty(res, res1) -> 
+        (
+          let new_pList = update_res_year_plenty res tn.active pLst in
+          match res1 with
+          |None ->  (None,((((hex,port),(intersList,rdList),dck, discd, robber), new_pList , tn, (next_turn tn.active, ActionRequest)),gi))
+          |Some(res) -> (None,((((hex,port),(intersList,rdList),dck, discd, robber), update_res_year_plenty res tn.active new_pList , tn, (next_turn tn.active, ActionRequest)),gi))
+        )
+      |PlayMonopoly(res) -> 
+            (None,((((hex,port),(intersList,rdList),dck, discd, robber), update_res_monoploy res tn.active pLst , tn, (next_turn tn.active, ActionRequest)),gi))
+      )
     |EndTurn -> print_endline "end turn"; (None, ((((hex,port),strctures,dck, discd, robber),pLst, update_turn tn nxt, nxt),gi))
 
 
