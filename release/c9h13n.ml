@@ -27,12 +27,20 @@ let uniq lst =
   Hashtbl.fold (fun x () xs -> x :: xs) unique_set []
 (**return true if ith element is None, false otherwise**)
 
-let valid_town_spot ilist p1 = 
-  let adpoints = List.flatten ( List.map (adjacent_points) (adjacent_points p1) ) in
-  if List.length (List.filter (fun elem -> if is_none (List.nth ilist p1) then false else true) adpoints) > 0 then
-    false
-  else
-    true
+let valid_town_spot lst p1 = 
+  let adpoints = adjacent_points p1 in
+  let rec ithhelper lst i p1= 
+  match lst with
+  [] -> false
+  |h::t -> (if (i = p1) then
+          (match h with
+          |None -> true
+          |_-> false) else (ithhelper t (i+1) p1) )in
+  let rec checkadpoints pointlist = 
+  match pointlist with
+  |[] -> true
+  |h::t -> if (ithhelper lst 0 h) then checkadpoints t else false in
+ ((ithhelper lst 0 p1) && (checkadpoints adpoints ))
 
 
 (* Outputs a string representation of a weighted cost "(b., w., o., g., l.)" *)
@@ -91,8 +99,9 @@ module Bot = functor (S : Soul) -> struct
   	normalized_weights
 
   let calc_utility cur_res : float= 
-  	let (bu,wu,ou,gu,lu) = map_cost_weight (fun cr w -> cr /. w) cur_res !ideal_weight in
-  	(min (min (min (min bu wu) ou) gu) lu)
+  	let (bu,wu,ou,gu,lu) = map_cost_weight (fun cr w -> if (cr < 0.0) then (-1000000000.0) else (sqrt cr) *. w) cur_res !ideal_weight in
+  	(*(min (min (min (min bu wu) ou) gu) lu)*)
+    bu +. wu +. ou +. gu +. lu
 
   let calc_vp_for_player (pcolor:color) (plist:player list) (ilist: intersection list) : int = 
     let trophies = get_trohpies_for_player pcolor plist in
@@ -127,7 +136,8 @@ module Bot = functor (S : Soul) -> struct
     let num_opp_towns = num_towns_on_hex_for_player hex_point ilist opp in
     let num_self_city = num_cities_on_hex_for_player hex_point ilist self in
     let num_opp_city = num_cities_on_hex_for_player hex_point ilist opp in
-    let hex_prob = List.nth roll_probs hex_point in
+    (print_endline (string_of_int hex_point));
+    let hex_prob = List.nth roll_probs (snd(List.nth hl hex_point)) in
     hex_prob *. (float_of_int(cRESOURCES_GENERATED_TOWN * (num_opp_towns - num_self_towns) + cRESOURCES_GENERATED_CITY * (num_opp_city - num_self_city)))
 
 
@@ -174,7 +184,7 @@ module Bot = functor (S : Soul) -> struct
     let (hl,_) = m in
     let (ilist,_) = s in
     let index = ref (-1) in
-    List.map (fun elem -> (index:= !index +1); match elem with | None -> (calc_initial_hexes_weight hl (adjacent_pieces !index),!index) | Some _ ->  (-1.0,!index)) ilist
+    List.map (fun elem -> (index:= !index +1); match elem with | None -> (print_endline (string_of_float(calc_initial_hexes_weight hl (adjacent_pieces !index)))); (calc_initial_hexes_weight hl (adjacent_pieces !index),!index) | Some _ -> (print_endline "-1"); (-1.0,!index)) ilist
 
 
   let all_valid_adj_building_areas_for_point (b:board) (p:point) = 
@@ -211,7 +221,7 @@ let valid_roads_for_point_and_color p rdList c=
     let (hl,_) = m in
     let (ilist,rlist) = s in
     let valid_next_build_locs = all_valid_adj_building_areas_for_point b p in
-    let weighted_next_town_spot_list = List.sort (fun e f -> if e > f then 1 else if e < f then -1 else 0) (List.map (fun elem -> calc_initial_hexes_weight hl (adjacent_pieces elem),elem) valid_next_build_locs) in
+    let weighted_next_town_spot_list = List.sort (fun e f -> if e > f then -1 else if e < f then 1 else 0) (List.map (fun elem -> calc_initial_hexes_weight hl (adjacent_pieces elem),elem) valid_next_build_locs) in
     let needed_roads = List.map (fun elem -> let (_,o) = elem in (p,o)) weighted_next_town_spot_list in
     (List.filter (fun elem -> valid_road_position rlist (fst elem) (snd elem)) needed_roads)
 
@@ -231,16 +241,17 @@ let valid_roads_for_point_and_color p rdList c=
   (* Invalid moves are overridden in game *)
   let handle_request ((b,p,t,n) : state) : move =
     let ((self:color), r) = n in
+    (print_endline (string_of_color self));
     match r with
       | InitialRequest -> begin 
 
-        let weighted_points = List.sort (fun e f -> if e > f then 1 else if e < f then -1 else 0) (calc_free_initial_point_weights b) in
+        let weighted_points = List.sort (fun e f -> if e > f then -1 else if e < f then 1 else 0) (calc_free_initial_point_weights b) in
         let rec do_move = function
           | [] -> -1
-          | (_,p)::t -> let (_,s,_,_,_) = b in let (ilist,_) = s in if valid_town_spot ilist p then p else do_move t
+          | (w,p)::t -> (print_endline (string_of_float w) ); let (_,s,_,_,_) = b in let (ilist,_) = s in if (valid_town_spot ilist p) && (List.length (weighted_valid_next_town_spot_list_for_point b p) > 0) then p else do_move t
         in
         let selected_initial_point = do_move weighted_points in
-
+        (debug ("[[][]]] selected_initial_point" ^ string_of_int selected_initial_point));
         if (selected_initial_point == -1) then begin
           (debug "[ERROR] Bot found no initial point. Returning (0,0)"); InitialMove(0,0); 
         end 
@@ -249,7 +260,7 @@ let valid_roads_for_point_and_color p rdList c=
           let where = weighted_valid_next_town_spot_list_for_point b selected_initial_point in
           match where with
             | [] -> (debug "[ERROR] Bot found no initial road. Returning (0,0)"); InitialMove(0,0);
-            | h::t -> InitialMove(h);
+            | h::t -> (debug ("[ERROR] Bot found  initial move. Returning (" ^ string_of_int (fst h) ^ ", " ^ string_of_int (snd h) ^ ")") ); InitialMove(h);
         end
       end
 
@@ -292,7 +303,7 @@ let valid_roads_for_point_and_color p rdList c=
             let u3 = ((calc_utility i3), i3) in
             let u4 = ((calc_utility i4), i4) in
             let u5 = ((calc_utility i5), i5) in
-            discard_res (num_left-1) (snd (List.hd (List.sort (fun e1 e2 -> let (u,_) = e1 in let (u',_) = e2 in compare u' u ) [u1;u2;u3;u4;u5])))
+            discard_res (num_left-1) (snd (List.hd (List.sort (fun e f -> (compare e f) * (-1) ) [u1;u2;u3;u4;u5])))
         in
         let ideal_inv = discard_res num_to_discard cur_inv in
         let discarded_res = map_cost2 (fun x y -> x - y) cur_inv ideal_inv in
@@ -331,7 +342,7 @@ let valid_roads_for_point_and_color p rdList c=
     		  (debug ("-----> Utility if accepted  : " ^ string_of_float self_util_after));
 
 
-    			if (self_util_after <= self_util_before) then begin
+    			if (self_util_after <= self_util_before || (float_of_int (sum_cost cProp)) < 0.8 *. (float_of_int (sum_cost cReq))) then begin
     				(debug "[INFO] Trade declined.");
     				TradeResponse(false)
           end
