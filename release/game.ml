@@ -35,13 +35,14 @@ let game_of_state s =
 let init_game () = game_of_state (gen_initial_state())
 
 
-let handle_move s m =
-  let ((((hex,port),strctures,dck, discd, robber),pLst, tn, nxt),gi) = s in
+let handle_move s m = 
+  let ((((hex,port),strctures,dck, discd, robber),pLst, tn, nxt),gi) = s in (printer(print_board ((hex,port),strctures,dck, discd, robber)));
 	let (intersList, rdList) = strctures in
+  let (nxtColor, req) = nxt in
 	match m with
 	|InitialMove(p1,p2) -> print_endline "InitialMove";
     (let p1 = (if (valid_town_spot intersList p1) then (print_endline "Valid_Intersection"; p1) 
-      else (print_endline "Valid_Intersection"; list_indexof (fun x -> match x with |None -> true |_-> false) intersList )) in
+      else (print_endline "inValid_Intersection"; random_open_town_spot intersList)) in
 		
 					let newInterList = setIthEleSet intersList p1 Town tn.active  in 
 					if ((adacentpoints p1 p2) && (valid_road_position rdList p1 p2 )) then
@@ -61,22 +62,41 @@ let handle_move s m =
 			
 			
 			
-	|RobberMove(rm) -> (None, s)
-	|DiscardMove(cost1) -> (None, s)
+	|RobberMove(piece,colorOp) -> 
+              (
+                let list_rand = [0;1;2;3;4;5;6;7;8;9;10;11;12;13;14;15;16;17;18] in
+                let rand_num = match (pick_random list_rand) with |Some x -> x |None -> failwith "should not happen" in
+                let piece1 = if (piece > -1 && piece < 19) then piece else rand_num in
+                match colorOp with 
+                |None ->  (None,((((hex,port),strctures,dck, discd, piece1),pLst, tn, (next_turn tn.active, ActionRequest)),gi)) 
+                        
+                |Some c -> if (check_color_ad c piece intersList) then (None,((((hex,port),strctures,dck, discd, piece1),remove_one pLst c, tn, (next_turn tn.active, ActionRequest)),gi))  
+                else (None,((((hex,port),strctures,dck, discd, piece1),pLst, tn, (next_turn tn.active, ActionRequest)),gi)) 
+              ) 
+	|DiscardMove(cost1) -> (print_endline "discardMove"; 
+    let nPlayList = discard_cost cost1 nxtColor pLst in 
+    let check_discard = check_player_lst_discard nPlayList in 
+    match check_discard with
+    |None -> (None,((((hex,port),strctures,dck, discd, robber), nPlayList, tn, (tn.active, RobberRequest)),gi))
+    |Some c -> (None,((((hex,port),strctures,dck, discd, robber), nPlayList, tn, (c, DiscardRequest)),gi)))
 	|TradeResponse(yesno) -> (None, s)
 	|Action(a) -> print_endline "action move";
     match a with
     |RollDice -> print_endline "dice roll";
       let dr = random_roll () in 
-      if (dr = cROBBER_ROLL) then ((None,((((hex,port),strctures,dck, discd, robber), pLst, tn, (tn.active, DiscardRequest)),gi))) 
-      else 
+      if  (dr = cROBBER_ROLL) then ((print_endline "robber roll"); 
+        let check_discard = check_player_lst_discard pLst in 
+        match check_discard with
+        |None -> (None,((((hex,port),strctures,dck, discd, robber), pLst, tn, (tn.active, RobberRequest)),gi))
+        |Some c -> (None,((((hex,port),strctures,dck, discd, robber), pLst, update_dice tn dr, (c, DiscardRequest)),gi))) 
+      else ((print_endline "non robber roll"); 
       (None, ((((hex,port),strctures,dck, discd, robber), 
-        update_resources_playerlist dr pLst intersList hex, tn, (tn.active, DiscardRequest)),gi))
+        update_resources_playerlist dr pLst intersList hex, update_dice tn dr, (next_turn tn.active, ActionRequest)),gi)))
     |MaritimeTrade (m) -> (None, s)
     |DomesticTrade (d)-> (None, s)
-    |BuyBuild (b)-> (None, s)
+    |BuyBuild (b)-> print_endline "building action";  (None,((((hex,port),build_method b strctures,dck, discd, robber),pLst, tn, (next_turn tn.active, ActionRequest)),gi))
     |PlayCard (pc)-> (None, s)
-    |EndTurn -> (None, s)
+    |EndTurn -> print_endline "end turn"; (None, ((((hex,port),strctures,dck, discd, robber),pLst, update_turn tn nxt, nxt),gi))
 
 
 let presentation g =  
