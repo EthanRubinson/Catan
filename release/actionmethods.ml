@@ -95,13 +95,56 @@ let check_road_connects c rdList p1 p2 =
 	|(color,(po1,po2))::t -> if (c = color && (po1 = p1 || po1 = p2 || po2 = p1 || po2 = p2)) then true else check_helper t in 
 	check_helper rdList
 
+let rec check_town_to_city_update p1 interList c =
+	let index_city = getIndexOf interList p1 in 
+	match index_city with
+	|None -> false
+	|Some(col,set) -> if  (col = c && set = Town) then true else false
+
+let rec check_res_to_buy b inv= 
+	let cost_to_build = cost_of_build b in 
+	check_vals inv cost_to_build 
+
+let rec get_inv playerList col= 
+	let player_index = list_indexof (fun (c,h,t) -> if (c = col) then true else false) playerList in
+	let (co,((b1,w1,o1,l1,g1), crds), trop) =  getIndexOf playerList player_index in (b1,w1,o1,l1,g1)
+
+let rec update_resources_building b pLst col = 
+	let cost_to_build = cost_of_build b in 
+	let player_index = list_indexof (fun (c,h,t) -> if (c = col) then true else false) pLst in
+	let (co,((b1,w1,o1,l1,g1), crds), trop) =  getIndexOf pLst player_index in
+	(co,(map_cost2 (-)(b1,w1,o1,l1,g1) cost_to_build,crds),trop)::(list_memremove (fun (c,h,t) -> if (c = col) then true else false) pLst)
+
+let update_resources_building_card b pLst col cd = 
+	let cost_to_build = cost_of_build b in 
+	let player_index = list_indexof (fun (c,h,t) -> if (c = col) then true else false) pLst in
+	let (co,((b1,w1,o1,l1,g1), crds), trop) =  getIndexOf pLst player_index in
+	(co,(map_cost2 (-)(b1,w1,o1,l1,g1) cost_to_build,append_card crds cd),trop)::(list_memremove (fun (c,h,t) -> if (c = col) then true else false) pLst)
+
 (**handles build returns **)
-let build_method b  (interList, rdList) = 
+let build_method b  state1=
+	let ((((hex,port),strctures,dck, discd, robber),pLst, tn, nxt),gi) = state1 in 
+	let (interList, rdList) = strctures in
 	match b with
-	|BuildRoad(c,(p1,p2)) -> print_endline "building road";  if (valid_road_position rdList p1 p2 && check_road_connects c rdList p1 p2) then ((print_endline "valid road"); (interList, (c,(p1,p2))::rdList)) else ((print_endline "invalid road"); (interList,rdList)) 
-	|BuildTown(t) -> (interList,rdList)
-	|BuildCity(p) -> (interList,rdList)
-	|BuildCard ->  (interList,rdList)
+	|BuildRoad(c,(p1,p2)) -> print_endline "building road";  if (valid_road_position rdList p1 p2 && check_road_connects c rdList p1 p2 && check_res_to_buy b (get_inv pLst tn.active)) 
+				then 
+					(None,((((hex,port),(interList, (c,(p1,p2))::rdList),dck, discd, robber),update_resources_building b pLst tn.active, tn, (next_turn tn.active, ActionRequest)),gi))  
+				else  (None,((((hex,port),(interList,rdList),dck, discd, robber),pLst, tn, (next_turn tn.active, ActionRequest)),gi))
+	|BuildTown(t) -> print_endline "building town";  if (valid_town_spot  interList t && check_res_to_buy b (get_inv pLst tn.active)) 
+				then  (None,((((hex,port),((setIthEleSet  interList t Town tn.active),rdList),dck, discd, robber),update_resources_building b pLst tn.active, tn, (next_turn tn.active, ActionRequest)),gi))  
+				else (None,((((hex,port),(interList,rdList),dck, discd, robber),pLst, tn, (next_turn tn.active, ActionRequest)),gi))
+	|BuildCity(p) -> print_endline "building city"; if (check_town_to_city_update p interList tn.active && check_res_to_buy b (get_inv pLst tn.active)) 
+				then  (None,((((hex,port),(setIthEleSet interList p City tn.active,rdList),dck, discd, robber),update_resources_building b pLst tn.active, tn, (next_turn tn.active, ActionRequest)),gi))  
+				else (None,((((hex,port),(interList,rdList),dck, discd, robber),pLst, tn, (next_turn tn.active, ActionRequest)),gi))
+	|BuildCard ->  print_endline "building card"; if (check_res_to_buy b (get_inv pLst tn.active)) 
+				then (
+					match dck with
+					|Reveal(cardList) ->
+					 (let (card_one, deck_fin) = pick_one cardList in
+					(None,((((hex,port),(interList,rdList),wrap_reveal deck_fin, discd, robber),update_resources_building_card b pLst tn.active card_one, tn, (next_turn tn.active, ActionRequest)),gi)))
+					|_-> failwith "cards should not be hidden"
+				)
+				else (None,((((hex,port),(interList,rdList),dck, discd, robber),pLst, tn, (next_turn tn.active, ActionRequest)),gi))
 
 let check_color_ad color piece  intersection= 
 	let pointList = piece_corners piece in 
@@ -129,3 +172,42 @@ let remove_one pLst col =
 	else (co,((b1,w1,o1,l1,g1-1),crds),trop)::(list_memremove (fun (c,h,t) -> if (c = col) then true else false) pLst)
 	)
 
+let update_knight_by_one (k,lr,larm) = 
+	(k+1, lr,larm)
+
+let update_trophy pLst col = 
+	let player_index = list_indexof (fun (c,h,t) -> if (c = col) then true else false) pLst in
+	let (co,((b1,w1,o1,l1,g1), crds), trop) =  getIndexOf pLst player_index in
+	 (co,((b1,w1,o1,l1,g1),crds),update_knight_by_one trop)::(list_memremove (fun (c,h,t) -> if (c = col) then true else false) pLst)
+
+let update_res_year_plenty res col pLst = 
+ 	let player_index = list_indexof (fun (c,h,t) -> if (c = col) then true else false) pLst in
+	let (co,((b1,w1,o1,l1,g1), crds), trop) =  getIndexOf pLst player_index in
+	(co,(map_cost2 (+) (single_resource_cost res )(b1,w1,o1,l1,g1),crds),update_knight_by_one trop)::(list_memremove (fun (c,h,t) -> if (c = col) then true else false) pLst)
+
+let setToZero (b1,w1,o1,l1,g1) res = 
+	match res with
+	|Brick -> (0,w1,o1,l1,g1)
+	| Wool -> (b1,0,o1,l1,g1)
+	| Ore -> (b1,w1,0,l1,g1)
+	| Grain -> (b1,w1,o1,0,g1)
+	| Lumber -> (b1,w1,o1,l1,0)
+
+let addToinv (b1,w1,o1,l1,g1) res  i = 
+	match res with
+	|Brick -> (b1+i,w1,o1,l1,g1)
+	| Wool -> (b1,w1+i,o1,l1,g1)
+	| Ore -> (b1,w1,o1+i,l1,g1)
+	| Grain -> (b1,w1,o1,l1+i,g1)
+	| Lumber -> (b1,w1,o1,l1,g1+i)
+
+let update_res_monoploy res col pLst = 
+	let player_index = list_indexof (fun (c,h,t) -> if (c = col) then true else false) pLst in
+	let (co,((b1,w1,o1,l1,g1), crds), trop) =  getIndexOf pLst player_index in
+	let removed_color_list = (list_memremove (fun (c,h,t) -> if (c = col) then true else false) pLst) in 
+	let rec remove_res lst (i,newLst) = 
+	match lst with
+	|[] -> (i,newLst)
+	|(co,((b1,w1,o1,l1,g1), crds), trop)::t -> remove_res t (i+ num_resource_in_inventory (b1,w1,o1,l1,g1) res, (co,(setToZero (b1,w1,o1,l1,g1) res, crds), trop)::newLst) in
+	let (i,lst) = (remove_res removed_color_list (0,[])) in
+	(co,(addToinv (b1,w1,o1,l1,g1) res i, crds), trop)::lst 
