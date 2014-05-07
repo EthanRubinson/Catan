@@ -47,12 +47,18 @@ let getIndexOf lst index =
 let valid_road_position rdList p1 p2 = 
     let rec roadhelper rdList p1 p2 = 
     match rdList with
-    [] -> true
+    [] -> (print_endline "valid_road_position"); true
     |(c,(p3,p4))::t -> 
     (
-      if ((p3 = p1 && p4 = p2) || (p3 = p2 && p4 = p1)) then false else roadhelper t p1 p2
+      if ((p3 = p1 && p4 = p2) || (p3 = p2 && p4 = p1)) then ((print_endline "invalid_road_position"); false) else roadhelper t p1 p2
     )
   in roadhelper rdList p1 p2
+
+let valid_road_check_inter interList p1 c =
+  let inters = getIndexOf interList p1 in
+  match inters with
+  |None -> true
+  |Some(col,s) -> if (c = col) then true else false
 
 (**pick random valid road**)
 let random_road p rdList c=
