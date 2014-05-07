@@ -45,13 +45,13 @@ let valid_town_spot lst p1 =
 
 (* Outputs a string representation of a weighted cost "(b., w., o., g., l.)" *)
 let string_of_weighted_cost tup = 
-  	let (b,w,o,g,l) = tup in
-  	let bs = string_of_float b in
-  	let ws = string_of_float w in
-  	let os = string_of_float o in
+    let (b,w,o,g,l) = tup in
+    let bs = string_of_float b in
+    let ws = string_of_float w in
+    let os = string_of_float o in
     let gs = string_of_float g in
-  	let ls = string_of_float l in
-  	"( " ^ bs ^ ", " ^ ws ^ ", " ^ os ^ ", " ^ gs ^ ", " ^ ls ^ " )"
+    let ls = string_of_float l in
+    "( " ^ bs ^ ", " ^ ws ^ ", " ^ os ^ ", " ^ gs ^ ", " ^ ls ^ " )"
 
 let map_cost_weight f c1 c2 : weight =
   let (b1,w1,o1,l1,g1) = c1 in
@@ -59,9 +59,9 @@ let map_cost_weight f c1 c2 : weight =
   (f (float_of_int b1) b2, f (float_of_int w1) w2, f (float_of_int o1) o2, f (float_of_int l1) l2, f (float_of_int g1) g2)
 
  let get_inventory_for_player (pcolor:color) (player_list : player list) : cost = 
- 	let player = List.nth player_list (list_indexof (fun elem -> let (c,_,_) = elem in if c == pcolor then true else false) player_list) in
- 	let (_,(i,c),_) = player in
- 	i
+  let player = List.nth player_list (list_indexof (fun elem -> let (c,_,_) = elem in if c == pcolor then true else false) player_list) in
+  let (_,(i,c),_) = player in
+  i
 
 let get_hand_for_player (pcolor:color) (player_list : player list) : cards = 
   let player = List.nth player_list (list_indexof (fun elem -> let (c,_,_) = elem in if c == pcolor then true else false) player_list) in
@@ -91,21 +91,21 @@ module Bot = functor (S : Soul) -> struct
   let ideal_weight = ref (-1.,-1.,-1.,-1.,-1.) (*B W O G L*)
 
   let calc_ideal_resource_weight () : weight = 
-  	let road_weighted_cost = map_cost (fun r -> !road_importance * r) cCOST_ROAD in
-  	let town_weighted_cost = map_cost (fun r -> !town_importance * r) cCOST_TOWN in
-  	let city_weighted_cost = map_cost (fun r -> !city_importance * r) cCOST_CITY in
-  	let card_weighted_cost = map_cost (fun r -> !card_importance * r) cCOST_CARD in
-  	let s1 = map_cost2 (fun x y -> x + y) road_weighted_cost town_weighted_cost in
-  	let s2 = map_cost2 (fun x y -> x + y) s1 city_weighted_cost in
-  	let s3 = map_cost2 (fun x y -> x + y) s2 card_weighted_cost in
-  	let (b,w,o,g,l) = s3 in
-  	let min_val = float_of_int (min (min (min (min b w) o) g) l) in
-  	let normalized_weights = map_cost (fun r -> (float_of_int r) /. min_val) s3 in
-  	normalized_weights
+    let road_weighted_cost = map_cost (fun r -> !road_importance * r) cCOST_ROAD in
+    let town_weighted_cost = map_cost (fun r -> !town_importance * r) cCOST_TOWN in
+    let city_weighted_cost = map_cost (fun r -> !city_importance * r) cCOST_CITY in
+    let card_weighted_cost = map_cost (fun r -> !card_importance * r) cCOST_CARD in
+    let s1 = map_cost2 (fun x y -> x + y) road_weighted_cost town_weighted_cost in
+    let s2 = map_cost2 (fun x y -> x + y) s1 city_weighted_cost in
+    let s3 = map_cost2 (fun x y -> x + y) s2 card_weighted_cost in
+    let (b,w,o,g,l) = s3 in
+    let min_val = float_of_int (min (min (min (min b w) o) g) l) in
+    let normalized_weights = map_cost (fun r -> (float_of_int r) /. min_val) s3 in
+    normalized_weights
 
   let calc_utility cur_res : float= 
-  	let (bu,wu,ou,gu,lu) = map_cost_weight (fun cr w -> if (cr < 0.0) then (-1000000000.0) else (sqrt cr) *. w) cur_res !ideal_weight in
-  	(*(min (min (min (min bu wu) ou) gu) lu)*)
+    let (bu,wu,ou,gu,lu) = map_cost_weight (fun cr w -> if (cr < 0.0) then (-1000000000.0) else (sqrt cr) *. w) cur_res !ideal_weight in
+    (*(min (min (min (min bu wu) ou) gu) lu)*)
     bu +. wu +. ou +. gu +. lu
 
   let calc_vp_for_player (pcolor:color) (plist:player list) (ilist: intersection list) : int = 
@@ -252,14 +252,14 @@ let valid_roads_for_point_and_color p rdList c=
 
 
   let initialize () = (
-  	(road_importance := 3);
-  	(town_importance := 4);
-  	(city_importance := 2);
-  	(card_importance := 1);
+    (road_importance := 3);
+    (town_importance := 4);
+    (city_importance := 2);
+    (card_importance := 1);
 
-  	(ideal_weight := calc_ideal_resource_weight() );
+    (ideal_weight := calc_ideal_resource_weight() );
   
-  	(debug ("[INFO] Bot initialized with initial weights: " ^ (string_of_weighted_cost !ideal_weight)));
+    (debug ("[INFO] Bot initialized with initial weights: " ^ (string_of_weighted_cost !ideal_weight)));
   )
 
   (* Invalid moves are overridden in game *)
@@ -345,37 +345,37 @@ let valid_roads_for_point_and_color p rdList c=
       end
 
       | TradeRequest -> begin
-      	let trader = t.active in
+        let trader = t.active in
 
-      	 (* Sanity Check *)
- 		     match (try Some (get_some t.pendingtrade) with _ -> None ) with
-    		  | None -> 	(debug "[WARN] Got trade request but no pending trade was present. Declined request"); 
-    					TradeResponse(false)
-    		  | Some tradeReq -> begin
-    			let (_,cProp,cReq) = tradeReq in
-    			let self_inv_before = get_inventory_for_player self p in
-    			let self_util_before = (calc_utility self_inv_before) in
-    			let self_inv_after = map_cost2 (fun x y -> x - y) (map_cost2 (fun x y -> x + y) cProp self_inv_before) cReq in
-    			let self_util_after = calc_utility self_inv_after in
- 				
- 				  (debug ("[INFO] Got TradeRequest from " ^ string_of_color trader ^ ": Proposing " ^ string_of_cost cProp ^ " | Requesting " ^ string_of_cost cReq));
- 				  (debug ("-----> Our inventory before : " ^ string_of_cost self_inv_before));
-    	  	(debug ("-----> Our inventory after  : " ^ string_of_cost self_inv_after));
-    		  (debug ("-----> Current weighting    : " ^ string_of_weighted_cost !ideal_weight));
-    		  (debug ("-----> Utility if declined  : " ^ string_of_float self_util_before));
-    		  (debug ("-----> Utility if accepted  : " ^ string_of_float self_util_after));
+         (* Sanity Check *)
+         match (try Some (get_some t.pendingtrade) with _ -> None ) with
+          | None ->   (debug "[WARN] Got trade request but no pending trade was present. Declined request"); 
+              TradeResponse(false)
+          | Some tradeReq -> begin
+          let (_,cProp,cReq) = tradeReq in
+          let self_inv_before = get_inventory_for_player self p in
+          let self_util_before = (calc_utility self_inv_before) in
+          let self_inv_after = map_cost2 (fun x y -> x - y) (map_cost2 (fun x y -> x + y) cProp self_inv_before) cReq in
+          let self_util_after = calc_utility self_inv_after in
+        
+          (debug ("[INFO] Got TradeRequest from " ^ string_of_color trader ^ ": Proposing " ^ string_of_cost cProp ^ " | Requesting " ^ string_of_cost cReq));
+          (debug ("-----> Our inventory before : " ^ string_of_cost self_inv_before));
+          (debug ("-----> Our inventory after  : " ^ string_of_cost self_inv_after));
+          (debug ("-----> Current weighting    : " ^ string_of_weighted_cost !ideal_weight));
+          (debug ("-----> Utility if declined  : " ^ string_of_float self_util_before));
+          (debug ("-----> Utility if accepted  : " ^ string_of_float self_util_after));
 
 
-    			if (self_util_after <= self_util_before || (float_of_int (sum_cost cProp)) < 0.8 *. (float_of_int (sum_cost cReq))) then begin
-    				(debug "[INFO] Trade declined.");
-    				TradeResponse(false)
+          if (self_util_after <= self_util_before || (float_of_int (sum_cost cProp)) < 0.8 *. (float_of_int (sum_cost cReq))) then begin
+            (debug "[INFO] Trade declined.");
+            TradeResponse(false)
           end
-    			else begin
-    				(debug "[INFO] Trade accepted.");
-    				TradeResponse(true)
+          else begin
+            (debug "[INFO] Trade accepted.");
+            TradeResponse(true)
           end
-    		end
-    	end
+        end
+      end
 
       | ActionRequest -> begin
         let (m,s,dck,_,r) = b in
@@ -419,43 +419,78 @@ let valid_roads_for_point_and_color p rdList c=
     
                       let where = List.sort (fun e f -> (compare e f) * -1) (List.flatten (List.map (weighted_valid_next_town_spot_list_for_point b) road_endpoints)) in
                       match where with
-                        | [] -> Action(EndTurn);
+                        | [] -> (print_endline "POS1"); Action(EndTurn);
                         | h::t -> Action(BuyBuild(BuildRoad(self,h)));
 
                     end
                     else begin
-                      Action(EndTurn)
+                        if can_afford_cost pinv cCOST_CITY then begin
+                            let towns = ref [] in
+                            let index = ref (-1) in 
+                            (List.iter (fun elem -> (index:=!index + 1); match elem with |Some ((c,s)) -> if c == self && s == Town then (towns := !index :: !towns) else () | None -> ()) ilist);
+                            let selection = pick_random !towns in
+                            match selection with
+                              |None -> (print_endline "POS5"); Action(EndTurn)
+                              |Some x -> Action(BuyBuild(BuildCity(x)))
+
+                          
+                        end
+                        else begin
+                          (print_endline "POS6");
+                          Action(EndTurn)
+                        end
                     end
 
                   end
 
 
-
-
-
-
-                  | Some x -> Action(BuyBuild(BuildTown(x)))
+                  | Some x -> (print_endline ("Buy town " ^ string_of_int x) ); Action(BuyBuild(BuildTown(x)))
               end
               else begin
               
-            Action(EndTurn)
+                (* Can't afford a town, but we may be able to build a road if the conditions are suitable *)
+                let ratio  = ((float_of_int (List.length (List.filter (fun elem -> let (c,(p1,p2)) = elem in c == self) rlist)) ) /. (float_of_int (total_towns_for_player ilist self + total_cities_for_player ilist self))) <= 1.5 in
+                if can_afford_cost pinv cCOST_ROAD  && ratio then begin
+                      let road_endpoints = List.fold_left (fun acc elem -> let (_,(p1,p2)) = elem in p1 :: p2 :: acc) [] (List.filter (fun elem -> let (c,(p1,p2)) = elem in c == self) rlist) in
+    
+                      let where = List.sort (fun e f -> (compare e f) * -1) (List.flatten (List.map (weighted_valid_next_town_spot_list_for_point b) road_endpoints)) in
+                      match where with
+                        | [] ->  (print_endline "POS3"); Action(EndTurn);
+                        | h::t -> (print_endline (string_of_int (fst h) ^ string_of_int (snd h))); Action(BuyBuild(BuildRoad(self,h)));
+
+                    end
+                    else begin
+                      (* Maybe draw a card? If we are here we can't afford anything *)
+                      (print_endline "POS4");
+                      Action(EndTurn)
+                    end
+
+
+
               end
             end
 
             else begin
               if total_cities_for_player ilist self < cMAX_CITIES_PER_PLAYER then begin
                 if can_afford_cost pinv cCOST_CITY then begin
-                
-            Action(EndTurn)
+                    let towns = ref [] in
+                    let index = ref (-1) in 
+                    (List.iter (fun elem -> (index:=!index + 1); match elem with |Some ((c,s)) -> if c == self && s == Town then (towns := !index :: !towns) else () | None -> ()) ilist);
+                    let selection = pick_random !towns in
+                    match selection with
+                      |None -> (print_endline "POS8"); Action(EndTurn)
+                      |Some x -> Action(BuyBuild(BuildCity(x)))
+
+                  
                 end
                 else begin
-              
-            Action(EndTurn)
+                  (print_endline "POS9");
+                  Action(EndTurn)
                 end
               end
               else begin
-              
-            Action(EndTurn)
+                  (print_endline "POS10");
+                  Action(EndTurn)
               end
             end
 
