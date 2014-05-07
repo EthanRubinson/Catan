@@ -74,12 +74,22 @@ let handle_move s m =
                 else (None,((((hex,port),strctures,dck, discd, piece1),pLst, update_turn tn nxt, (next_turn tn.active, ActionRequest)),gi)) 
               ) 
 	|DiscardMove(cost1) -> (print_endline "discardMove"; 
-    let nPlayList = discard_cost cost1 nxtColor pLst in 
-    let check_discard = check_player_lst_discard nPlayList in 
-    match check_discard with
-    |None -> (None,((((hex,port),strctures,dck, discd, robber), nPlayList, tn, (tn.active, RobberRequest)),gi))
-    |Some c -> (None,((((hex,port),strctures,dck, discd, robber), nPlayList, tn, (c, DiscardRequest)),gi)))
-	|TradeResponse(yesno) -> (None, s)
+	    let nPlayList = discard_cost cost1 nxtColor pLst in 
+	    let check_discard = check_player_lst_discard nPlayList in 
+	    match check_discard with
+	    |None -> (None,((((hex,port),strctures,dck, discd, robber), nPlayList, tn, (tn.active, RobberRequest)),gi))
+	    |Some c -> (None,((((hex,port),strctures,dck, discd, robber), nPlayList, tn, (c, DiscardRequest)),gi)))
+		|TradeResponse(yesno) -> 
+			(
+				match yesno with
+				|false -> (None, ((((hex,port),strctures,dck, discd, robber), 
+		        			pLst, clear_trade tn, (next_turn tn.active, ActionRequest)),gi))
+				|true ->
+						(
+							(None, ((((hex,port),strctures,dck, discd, robber), 
+		        			update_aproved  pLst tn.active (get_some tn.pendingtrade), clear_trade tn, (next_turn tn.active, ActionRequest)),gi))
+						)
+			)
 	|Action(a) -> print_endline "action move";
     match a with
     |RollDice -> print_endline "dice roll";
@@ -92,8 +102,33 @@ let handle_move s m =
       else ((print_endline "non robber roll"); 
       (None, ((((hex,port),strctures,dck, discd, robber), 
         update_resources_playerlist dr pLst intersList hex, update_dice tn dr, (next_turn tn.active, ActionRequest)),gi)))
-    |MaritimeTrade (m) -> (None, s)
-    |DomesticTrade (d)-> (None, s)
+    |MaritimeTrade (m) -> 
+    (
+    	let (res1, res2) = m in
+    		match (play_owns_port tn.active intersList port res1) with
+    		|None -> let (newpList, newtn) =   update_trade pLst tn.active cMARITIME_DEFAULT_RATIO res1 res2 tn in
+    			(None, ((((hex,port),strctures,dck, discd, robber), 
+        			newpList,  newtn, (next_turn tn.active, ActionRequest)),gi))
+    		|i ->   let (newpList, newtn) =   update_trade pLst tn.active (get_some i) res1 res2 tn in
+    				(None, ((((hex,port),strctures,dck, discd, robber), 
+        			newpList,  newtn, (next_turn tn.active, ActionRequest)),gi))
+    )
+    |DomesticTrade (d)-> 
+    	(
+    		let (col, cost1, cost2) = d in
+    		if (tn.tradesmade = cNUM_TRADES_PER_TURN)
+    		then (None, ((((hex,port),strctures,dck, discd, robber), 
+        			pLst,  tn, (next_turn tn.active, ActionRequest)),gi))
+    		else
+    			(
+    				if (has_cost tn.active pLst cost1 && has_cost tn.active pLst cost2) then
+		    			(None, ((((hex,port),strctures,dck, discd, robber), 
+		        			pLst, turn_add_trade tn d, (tn.active, TradeRequest)),gi))
+		    		else 
+			    		(None, ((((hex,port),strctures,dck, discd, robber), 
+	        			pLst,  tn, (next_turn tn.active, ActionRequest)),gi))
+    			)
+    	)
     |BuyBuild (b)-> print_endline "building action";  build_method b s
     |PlayCard (pc)-> print_endline "playcard";
       (match pc with
@@ -103,10 +138,10 @@ let handle_move s m =
                 let rand_num = match (pick_random list_rand) with |Some x -> x |None -> failwith "should not happen" in
                 let piece1 = if (piece > -1 && piece < 19) then piece else rand_num in
                 match colorOp with 
-                |None ->  (None,((((hex,port),strctures,dck, discd, piece1),update_trophy pLst tn.active, update_turn tn nxt, (next_turn tn.active, ActionRequest)),gi)) 
+                |None ->  (None,((((hex,port),strctures,dck, discd, piece1),(update_largest_army(update_trophy pLst tn.active)), update_turn tn nxt, (next_turn tn.active, ActionRequest)),gi)) 
                         
                 |Some c -> if (check_color_ad c piece intersList) then (None,((((hex,port),strctures,dck, discd, piece1),update_trophy (remove_one pLst c) tn.active, update_turn tn nxt, (next_turn tn.active, ActionRequest)),gi))  
-                else (None,((((hex,port),strctures,dck, discd, piece1),update_trophy pLst tn.active, update_turn tn nxt, (next_turn tn.active, ActionRequest)),gi)) 
+                else (None,((((hex,port),strctures,dck, discd, piece1),(update_largest_army(update_trophy pLst tn.active)), update_turn tn nxt, (next_turn tn.active, ActionRequest)),gi)) 
               ) 
       |PlayRoadBuilding (rd,rd1) -> 
             (
@@ -137,7 +172,7 @@ let handle_move s m =
       |PlayMonopoly(res) -> 
             (None,((((hex,port),(intersList,rdList),dck, discd, robber), update_res_monoploy res tn.active pLst , tn, (next_turn tn.active, ActionRequest)),gi))
       )
-    |EndTurn -> print_endline "end turn"; (None, ((((hex,port),strctures,dck, discd, robber),pLst, update_turn tn nxt, nxt),gi))
+    |EndTurn -> print_endline "end turn";  (((update_winner pLst intersList), ((((hex,port),strctures,dck, discd, robber),pLst, update_turn tn nxt, nxt),gi)))
 
 
 let presentation g =  
