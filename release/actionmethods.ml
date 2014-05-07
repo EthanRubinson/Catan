@@ -31,10 +31,13 @@ let rec robber_discard ply =
 			if (sum_cost i > cMAX_HAND_SIZE) then (c,(take_half i,cards),trophies)
 			else (c,(i,cards),trophies)::(robber_discard t)
 		)**)
-let rec check_player_lst_discard playerList = 
-	match playerList with
-	|[] -> None
-	|(c,(inv,crd),trop)::t -> if (sum_cost(inv)) > cMAX_HAND_SIZE then Some(c) else check_player_lst_discard t
+let rec check_player_lst_discard playerList col overallcol= 
+	let player_index = list_indexof (fun (c,h,t) -> if (c = col) then true else false) playerList in
+	let (co,((b1,w1,o1,l1,g1), crds), trop) =  getIndexOf playerList player_index in
+			if (sum_cost(b1,w1,o1,l1,g1)) > cMAX_HAND_SIZE then Some(co) 
+			else 
+			(if (next_turn col = overallcol) then None
+			else check_player_lst_discard playerList (next_turn col) overallcol )
 
 let check_vals (b1,w1,o1,l1,g1) (b,w,o,l,g) = 
 	let vals = map_cost2 (fun x y -> if (y>x) then false else true) (b1,w1,o1,l1,g1) (b,w,o,l,g) in
@@ -53,14 +56,14 @@ else take_half (b1,w1,o1,l1,g1)) in
 
 
 
-let  find_resource hex i counter dr  (b1,w1,o1,l1,g1) set= 
+let  find_resource hex i counter dr  (b1,w1,o1,l1,g1) set robber= 
 	let ad_piece = adjacent_pieces i in
 	let rec find_res_help adlist (b1,w1,o1,l1,g1) = 
 	match adlist with
 	[] -> (b1,w1,o1,l1,g1)
 	|h::t -> 
 	let (ter,roll) = getIndexOf hex h in
-	if (roll = dr) then 
+	if (roll = dr && ((h=robber)=false)) then 
 							(
 								match (resource_of_terrain ter) with
 								|Some x1 -> 
@@ -70,17 +73,17 @@ let  find_resource hex i counter dr  (b1,w1,o1,l1,g1) set=
 					else  find_res_help t (b1,w1,o1,l1,g1) in
 		find_res_help ad_piece (b1,w1,o1,l1,g1) 
 
-let rec update_resources_color col i inters  (b1,w1,o1,l1,g1) dr hex= 
+let rec update_resources_color col i inters  (b1,w1,o1,l1,g1) dr hex robber= 
 	match inters with
 	[] -> (b1,w1,o1,l1,g1) 
-	|None::t ->  update_resources_color col (i+1) t  (b1,w1,o1,l1,g1) dr hex
-	|Some(c,set)::t -> if (col = c) then update_resources_color col  (i+1) t (find_resource hex i 0 dr (b1,w1,o1,l1,g1) set) dr hex  else update_resources_color col (i+1) t  (b1,w1,o1,l1,g1) dr hex
+	|None::t ->  update_resources_color col (i+1) t  (b1,w1,o1,l1,g1) dr hex robber
+	|Some(c,set)::t -> if (col = c) then update_resources_color col  (i+1) t (find_resource hex i 0 dr (b1,w1,o1,l1,g1) set robber) dr hex  robber else update_resources_color col (i+1) t  (b1,w1,o1,l1,g1) dr hex robber
 
 
-let rec update_resources_playerlist diceroll playList intersectionList hex=
+let rec update_resources_playerlist diceroll playList intersectionList hex robber=
 	match playList with
 	|[] -> []
-	| (c,(inv,cards), trophies)::t -> (c,(update_resources_color c 0 intersectionList inv diceroll hex,cards), trophies)::(update_resources_playerlist diceroll t intersectionList hex)
+	| (c,(inv,cards), trophies)::t -> (c,(update_resources_color c 0 intersectionList inv diceroll hex robber,cards), trophies)::(update_resources_playerlist diceroll t intersectionList hex robber)
 
 let update_turn tn next = 
 	let (next_tn, request) = next in
@@ -92,8 +95,8 @@ let update_turn tn next =
 let check_road_connects c rdList p1 p2 = 
 	let rec check_helper rdList =
 	match rdList with
-	|[] -> false
-	|(color,(po1,po2))::t -> if (c = color && (po1 = p1 || po1 = p2 || po2 = p1 || po2 = p2)) then true else check_helper t in 
+	|[] -> (print_endline "road does not connect"); false 
+	|(color,(po1,po2))::t -> if (c = color && (po1 = p1 || po1 = p2 || po2 = p1 || po2 = p2)) then ((print_endline "road does connect"); true) else check_helper t in 
 	check_helper rdList
 
 let rec check_town_to_city_update p1 interList c =
@@ -104,7 +107,9 @@ let rec check_town_to_city_update p1 interList c =
 
 let rec check_res_to_buy b inv= 
 	let cost_to_build = cost_of_build b in 
-	check_vals inv cost_to_build 
+	match (check_vals inv cost_to_build) with
+	|true -> print_endline " enough resources to buy road"; true
+	|false -> print_endline "not enough resources to buy road"; false
 
 let rec get_inv playerList col= 
 	let player_index = list_indexof (fun (c,h,t) -> if (c = col) then true else false) playerList in
@@ -325,30 +330,37 @@ let update_longest_road rd interlst pList =
 				else pList
 			)
 
+let check_town_connects_road rdList p1 col= 
+	let rec check_town_connect_helper lst = 
+	match lst with
+	|[] -> false
+	|(c,(po1,po2))::t -> if ((c=col) && ((po1 = p1) || (po2 =p1))) then true else check_town_connect_helper t 
+in check_town_connect_helper rdList
+
 (**handles build returns **)
 let build_method b  state1=
 	let ((((hex,port),strctures,dck, discd, robber),pLst, tn, nxt),gi) = state1 in 
 	let (interList, rdList) = strctures in
 	match b with
-	|BuildRoad(c,(p1,p2)) -> print_endline "building road";  if (valid_road_position rdList p1 p2 && check_road_connects c rdList p1 p2 && check_res_to_buy b (get_inv pLst tn.active)) 
+	|BuildRoad(c,(p1,p2)) -> print_endline "building road";  if (valid_road_position rdList p1 p2 && check_road_connects c rdList p1 p2 && check_res_to_buy b (get_inv pLst tn.active) && valid_road_check_inter interList p1 tn.active && valid_road_check_inter interList p2 tn.active) 
 				then 
-					(None,((((hex,port),(interList, (c,(p1,p2))::rdList),dck, discd, robber),update_longest_road ((c,(p1,p2))::rdList) interList (update_resources_building b pLst tn.active), tn, (next_turn tn.active, ActionRequest)),gi))  
-				else  (None,((((hex,port),(interList,rdList),dck, discd, robber),pLst, tn, (next_turn tn.active, ActionRequest)),gi))
-	|BuildTown(t) -> print_endline "building town";  if (valid_town_spot  interList t && check_res_to_buy b (get_inv pLst tn.active)) 
-				then  (None,((((hex,port),((setIthEleSet  interList t Town tn.active),rdList),dck, discd, robber),update_resources_building b pLst tn.active, tn, (next_turn tn.active, ActionRequest)),gi))  
-				else (None,((((hex,port),(interList,rdList),dck, discd, robber),pLst, tn, (next_turn tn.active, ActionRequest)),gi))
+					(None,((((hex,port),(interList, (c,(p1,p2))::rdList),dck, discd, robber),update_longest_road ((c,(p1,p2))::rdList) interList (update_resources_building b pLst tn.active), tn, ( tn.active, ActionRequest)),gi))  
+				else  (None,((((hex,port),(interList,rdList),dck, discd, robber),pLst, tn, (tn.active, ActionRequest)),gi))
+	|BuildTown(t) -> print_endline "building town";  if (valid_town_spot  interList t && check_res_to_buy b (get_inv pLst tn.active) && check_town_connects_road rdList t tn.active) 
+				then  (None,((((hex,port),((setIthEleSet  interList t Town tn.active),rdList),dck, discd, robber),update_resources_building b pLst tn.active, tn, ( tn.active, ActionRequest)),gi))  
+				else (None,((((hex,port),(interList,rdList),dck, discd, robber),pLst, tn, ( tn.active, ActionRequest)),gi))
 	|BuildCity(p) -> print_endline "building city"; if (check_town_to_city_update p interList tn.active && check_res_to_buy b (get_inv pLst tn.active)) 
-				then  (None,((((hex,port),(setIthEleSet interList p City tn.active,rdList),dck, discd, robber),update_resources_building b pLst tn.active, tn, (next_turn tn.active, ActionRequest)),gi))  
-				else (None,((((hex,port),(interList,rdList),dck, discd, robber),pLst, tn, (next_turn tn.active, ActionRequest)),gi))
+				then  (None,((((hex,port),(setIthEleSet interList p City tn.active,rdList),dck, discd, robber),update_resources_building b pLst tn.active, tn, ( tn.active, ActionRequest)),gi))  
+				else (None,((((hex,port),(interList,rdList),dck, discd, robber),pLst, tn, ( tn.active, ActionRequest)),gi))
 	|BuildCard ->  print_endline "building card"; if (check_res_to_buy b (get_inv pLst tn.active)) 
 				then (
 					match dck with
 					|Reveal(cardList) ->
 					 (let (card_one, deck_fin) = pick_one cardList in
-					(None,((((hex,port),(interList,rdList),wrap_reveal deck_fin, discd, robber),update_resources_building_card b pLst tn.active card_one, tn, (next_turn tn.active, ActionRequest)),gi)))
+					(None,((((hex,port),(interList,rdList),wrap_reveal deck_fin, discd, robber),update_resources_building_card b pLst tn.active card_one, tn, ( tn.active, ActionRequest)),gi)))
 					|_-> failwith "cards should not be hidden"
 				)
-				else (None,((((hex,port),(interList,rdList),dck, discd, robber),pLst, tn, (next_turn tn.active, ActionRequest)),gi))
+				else (None,((((hex,port),(interList,rdList),dck, discd, robber),pLst, tn, ( tn.active, ActionRequest)),gi))
 
 
 let rec count_vic_card cards count=
@@ -365,23 +377,43 @@ let tol_vic cards (knight,lroad, larm) =
 	|(false, true) -> cVP_LARGEST_ARMY + vic_c
 	|_-> vic_c
 
-let rec count_total_set intersList count col= 
+let rec count_total_set (intersList:intersection list) count col= 
 	match intersList with
 	|[] -> count
 	|(Some(c,s))::t -> if (c = col) then count_total_set t (count + (match s with |Town -> cVP_TOWN |City -> cVP_CITY)) col else count_total_set t count col
 	| h::t ->  count_total_set t count col
 
-let update_winner (pLst:player list) (intersList:intersection list):color option= 
+let update_winner (s:'a outcome):'a outcome= 
+	let (w,((((hex,port),strctures,dck, discd, robber),pLst, tn, nxt),gi)) = s in
+	let (intersList, rdList) = strctures in
   	let rec update_helper lst =
   	match lst with
-  	|[] -> None
+  	|[] -> (None,((((hex,port),strctures,dck, discd, robber),pLst, tn, nxt),gi))
   	|h::t -> 
   		(let (col,hnd,troph) = h in
   		let (inv,crds) = hnd in
   		let (knight,lroad, larm) = troph in
-  		if ((tol_vic crds (knight,lroad, larm)) + (count_total_set intersList 0 col) >= 10) then (Some(col))
+  		if ((tol_vic crds (knight,lroad, larm)) + (count_total_set intersList 0 col) >= 10) then  (None,((((hex,port),strctures,dck, discd, robber),pLst, tn, nxt),gi))
   		else update_helper t )
   	in update_helper pLst
+
+let card_played tn = 
+	{active= tn.active; 
+    dicerolled= tn.dicerolled; cardplayed= true; 
+    cardsbought= tn.cardsbought; 
+    tradesmade= tn.tradesmade; pendingtrade= tn.pendingtrade
+    }
+
+
+let update_card_played pc s = 
+  	let	(w,((((hex,port),strctures,dck, discd, robber),pLst, tn, nxt),gi)) = s in
+  		let card_just_played = 
+  			match pc with
+  			|PlayKnight(_) -> Knight
+  			|PlayRoadBuilding(_) -> RoadBuilding
+  			|PlayYearOfPlenty(_) -> YearOfPlenty
+  			|PlayMonopoly(_) -> Monopoly in
+  		(w,((((hex,port),strctures,dck, card_just_played::discd, robber),pLst, card_played tn, nxt),gi))
 
 
 
