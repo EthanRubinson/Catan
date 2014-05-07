@@ -337,19 +337,49 @@ let check_town_connects_road rdList p1 col=
 	|(c,(po1,po2))::t -> if ((c=col) && ((po1 = p1) || (po2 =p1))) then true else check_town_connect_helper t 
 in check_town_connect_helper rdList
 
+(**check to make sure not over max**)
+
+ let below_max_roads col rdList=
+ 	let rec road_count rdList= 
+ 		match rdList with
+ 		|[] -> 0
+ 		|(c,(p1,p2))::t -> if (c=col) then 1 + (road_count t) else (road_count t) in
+ 	let fin_road_c = road_count rdList in
+ 	if (fin_road_c < cMAX_ROADS_PER_PLAYER) then true else false
+
+ let below_max_town col interList = 
+ 	let rec town_count interList = 
+ 	match interList with
+ 	|[] -> 0
+ 	|Some(c,s)::t -> if (col = c && s=Town) then 1 + town_count t else town_count t
+ 	|h::t -> town_count t
+ in 
+ let fin_town_c = town_count interList in
+ if (fin_town_c < cMAX_TOWNS_PER_PLAYER) then true else false
+
+let below_max_city col interList = 
+ 	let rec town_count interList = 
+ 	match interList with
+ 	|[] -> 0
+ 	|Some(c,s)::t -> if (col = c && s=City) then 1 + town_count t else town_count t
+ 	|h::t -> town_count t
+ in 
+ let fin_town_c = town_count interList in
+ if (fin_town_c < cMAX_CITIES_PER_PLAYER) then true else false
+
 (**handles build returns **)
 let build_method b  state1=
 	let ((((hex,port),strctures,dck, discd, robber),pLst, tn, nxt),gi) = state1 in 
 	let (interList, rdList) = strctures in
 	match b with
-	|BuildRoad(c,(p1,p2)) -> print_endline "building road";  if (valid_road_position rdList p1 p2 && check_road_connects c rdList p1 p2 && check_res_to_buy b (get_inv pLst tn.active) && valid_road_check_inter interList p1 tn.active && valid_road_check_inter interList p2 tn.active) 
+	|BuildRoad(c,(p1,p2)) -> print_endline "building road";  if (valid_road_position rdList p1 p2 && check_road_connects c rdList p1 p2 && check_res_to_buy b (get_inv pLst tn.active) && valid_road_check_inter interList p1 tn.active && valid_road_check_inter interList p2 tn.active && below_max_roads tn.active rdList) 
 				then 
 					(None,((((hex,port),(interList, (c,(p1,p2))::rdList),dck, discd, robber),update_longest_road ((c,(p1,p2))::rdList) interList (update_resources_building b pLst tn.active), tn, ( tn.active, ActionRequest)),gi))  
 				else  (None,((((hex,port),(interList,rdList),dck, discd, robber),pLst, tn, (tn.active, ActionRequest)),gi))
-	|BuildTown(t) -> print_endline "building town";  if (valid_town_spot  interList t && check_res_to_buy b (get_inv pLst tn.active) && check_town_connects_road rdList t tn.active) 
+	|BuildTown(t) -> print_endline "building town";  if (valid_town_spot  interList t && check_res_to_buy b (get_inv pLst tn.active) && check_town_connects_road rdList t tn.active && below_max_town tn.active interList) 
 				then  (None,((((hex,port),((setIthEleSet  interList t Town tn.active),rdList),dck, discd, robber),update_resources_building b pLst tn.active, tn, ( tn.active, ActionRequest)),gi))  
 				else (None,((((hex,port),(interList,rdList),dck, discd, robber),pLst, tn, ( tn.active, ActionRequest)),gi))
-	|BuildCity(p) -> print_endline "building city"; if (check_town_to_city_update p interList tn.active && check_res_to_buy b (get_inv pLst tn.active)) 
+	|BuildCity(p) -> print_endline "building city"; if (check_town_to_city_update p interList tn.active && check_res_to_buy b (get_inv pLst tn.active) && below_max_city tn.active interList) 
 				then  (None,((((hex,port),(setIthEleSet interList p City tn.active,rdList),dck, discd, robber),update_resources_building b pLst tn.active, tn, ( tn.active, ActionRequest)),gi))  
 				else (None,((((hex,port),(interList,rdList),dck, discd, robber),pLst, tn, ( tn.active, ActionRequest)),gi))
 	|BuildCard ->  print_endline "building card"; if (check_res_to_buy b (get_inv pLst tn.active)) 
@@ -414,6 +444,8 @@ let update_card_played pc s =
   			|PlayYearOfPlenty(_) -> YearOfPlenty
   			|PlayMonopoly(_) -> Monopoly in
   		(w,((((hex,port),strctures,dck, card_just_played::discd, robber),pLst, card_played tn, nxt),gi))
+
+
 
 
 
