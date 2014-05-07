@@ -156,13 +156,13 @@ let handle_move s m =
       |PlayRoadBuilding (rd,rd1) -> 
             (
               let (c,(p1,p2)) = rd in
-                if (valid_road_position rdList p1 p2 && check_road_connects c rdList p1 p2 && valid_road_check_inter intersList p1 tn.active && valid_road_check_inter intersList p2 tn.active) then
+                if (valid_road_position rdList p1 p2 && check_road_connects c rdList p1 p2 && valid_road_check_inter intersList p1 tn.active && valid_road_check_inter intersList p2 tn.active && below_max_roads tn.active rdList) then
                  (let newrd_lst = ((c,(p1,p2))::rdList) in
                 match rd1 with
                 |Some rd -> 
                   (
                     let (c,(p1,p2)) = rd in
-                    if (valid_road_position newrd_lst p1 p2 && check_road_connects c newrd_lst p1 p2 && valid_road_check_inter intersList p1 tn.active && valid_road_check_inter intersList p2 tn.active) then
+                    if (valid_road_position newrd_lst p1 p2 && check_road_connects c newrd_lst p1 p2 && valid_road_check_inter intersList p1 tn.active && valid_road_check_inter intersList p2 tn.active && below_max_roads tn.active rdList) then
                     update_winner(None,((((hex,port),(intersList, (c,(p1,p2))::newrd_lst),dck, discd, robber),pLst , tn, ( tn.active, ActionRequest)),gi))
                     else
                     update_winner(None,((((hex,port),(intersList, newrd_lst),dck, discd, robber),pLst , tn, ( tn.active, ActionRequest)),gi))
@@ -187,7 +187,7 @@ let handle_move s m =
     )
    in  
    ( 
-   (** match (printer(print_board(map)),printer (print_code_of_state_nowait (map,pl,t,n)), (w,((map,pl,t,n),gi)))
+    (**match (printer(print_board(map)),printer (print_code_of_state_nowait (map,pl,t,n)), (w,((map,pl,t,n),gi)))
     with
     |_,_,t -> t **) (w,((map,pl,t,n),gi))
    )
