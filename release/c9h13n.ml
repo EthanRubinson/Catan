@@ -63,6 +63,11 @@ let map_cost_weight f c1 c2 : weight =
  	let (_,(i,c),_) = player in
  	i
 
+let get_hand_for_player (pcolor:color) (player_list : player list) : cards = 
+  let player = List.nth player_list (list_indexof (fun elem -> let (c,_,_) = elem in if c == pcolor then true else false) player_list) in
+  let (_,(i,c),_) = player in
+  c
+
 let get_num_cards_for_player (pcolor:color) (player_list : player list) : int = 
   let player = List.nth player_list (list_indexof (fun elem -> let (c,_,_) = elem in if c == pcolor then true else false) player_list) in
   let (_,(i,c),_) = player in
@@ -122,6 +127,16 @@ module Bot = functor (S : Soul) -> struct
     let adj_settles = piece_corners hex_point in
     let count = ref 0 in
     (List.iter (fun pnt -> match (List.nth ilist pnt) with |Some ((c,s)) -> if c == pcolor && s == Town then (count := !count + 1) else () | None -> ()) adj_settles);
+    !count
+
+  let total_towns_for_player (ilist: intersection list) (pcolor:color) :int =
+    let count = ref 0 in
+    (List.iter (fun elem -> match elem with |Some ((c,s)) -> if c == pcolor && s == Town then (count := !count + 1) else () | None -> ()) ilist);
+    !count
+
+  let total_cities_for_player (ilist: intersection list) (pcolor:color) :int =
+    let count = ref 0 in
+    (List.iter (fun elem -> match elem with |Some ((c,s)) -> if c == pcolor && s == City then (count := !count + 1) else () | None -> ()) ilist);
     !count
 
   let num_cities_on_hex_for_player (hex_point:piece) (ilist: intersection list) (pcolor:color) : int =
@@ -224,6 +239,15 @@ let valid_roads_for_point_and_color p rdList c=
     let weighted_next_town_spot_list = List.sort (fun e f -> if e > f then -1 else if e < f then 1 else 0) (List.map (fun elem -> calc_initial_hexes_weight hl (adjacent_pieces elem),elem) valid_next_build_locs) in
     let needed_roads = List.map (fun elem -> let (_,o) = elem in (p,o)) weighted_next_town_spot_list in
     (List.filter (fun elem -> valid_road_position rlist (fst elem) (snd elem)) needed_roads)
+
+
+  let get_best_valid_buildable_point_for_player hl ilist rlist pcolor = 
+    let road_endpoints = List.fold_left (fun acc elem -> let (_,(p1,p2)) = elem in p1 :: p2 :: acc) [] (List.filter (fun elem -> let (c,(p1,p2)) = elem in c == pcolor) rlist) in
+    let valid_build_point_list = List.filter (fun pnt -> valid_town_spot ilist pnt) road_endpoints in
+    let weighted_build_point_list = List.sort (fun e f -> if e > f then -1 else if e < f then 1 else 0) (List.map (fun elem -> calc_initial_hexes_weight hl (adjacent_pieces elem),elem) valid_build_point_list) in
+    match weighted_build_point_list with
+     | [] -> None
+     | h::t -> let (_,o) = h in Some o
 
 
 
@@ -353,8 +377,92 @@ let valid_roads_for_point_and_color p rdList c=
     		end
     	end
 
-      | ActionRequest -> 
-        if is_none t.dicerolled then Action(RollDice) else Action(EndTurn)
+      | ActionRequest -> begin
+        let (m,s,dck,_,r) = b in
+        let (hl,_) = m in
+        let (ilist,rlist) = s in
+        let pinv = get_inventory_for_player self p in
+        let hand = match get_hand_for_player self p with | Hidden _ -> [] | Reveal i -> i in
+        let has_knight = (List.length (List.filter (fun elem -> elem == Knight) hand)) > 0 in
+        let index = ref (-1) in
+        let should_move_robber = ref false in
+        (List.iter (fun elem -> (index:= !index + 1); match elem with | Some ((c,s)) -> if c == self && (List.length (List.filter (fun nn -> if nn == r then true else false) (adjacent_pieces !index)) > 0) then (should_move_robber:=true) else () | None -> ()) ilist);
+        if t.cardplayed == false && !should_move_robber == true && has_knight == true then begin
+          let robMove = (match (calc_robber_placement_ranked_options b self p) with
+                          | [] -> begin (debug "[INFO] Want to move robber, but no ideal placement was found. Defaulting to (0,None)");
+                                  (0, None) 
+                                end
+                          | h::t -> begin 
+                                     let (_,pc,pl) = h in 
+                                      (debug ("[INFO] Want to move robber, yielding (" ^ string_of_int pc ^ ", " ^ string_of_color pl ^ ")"));
+                                      (pc,Some pl) 
+                                   end)
+                                 in
+
+
+          Action(PlayCard(PlayKnight(robMove)))
+        end
+        else begin
+          if is_none t.dicerolled then begin
+            Action(RollDice) 
+          end
+          else begin
+            let can_afford_cost inv cst = let (r1,r2,r3,r4,r5) = (map_cost2 (fun x y -> x - y) inv cst) in (r1 >= 0 && r2 >= 0 && r3 >= 0 && r4 >= 0 && r5 >= 0) in
+
+            if total_towns_for_player ilist self < cMAX_TOWNS_PER_PLAYER then begin
+              if can_afford_cost pinv cCOST_TOWN then begin
+                match get_best_valid_buildable_point_for_player hl ilist rlist self with
+                  | None -> (* We need roads *) begin
+                    
+                    if can_afford_cost pinv cCOST_ROAD then begin
+                      let road_endpoints = List.fold_left (fun acc elem -> let (_,(p1,p2)) = elem in p1 :: p2 :: acc) [] (List.filter (fun elem -> let (c,(p1,p2)) = elem in c == self) rlist) in
+    
+                      let where = List.sort (fun e f -> (compare e f) * -1) (List.flatten (List.map (weighted_valid_next_town_spot_list_for_point b) road_endpoints)) in
+                      match where with
+                        | [] -> Action(EndTurn);
+                        | h::t -> Action(BuyBuild(BuildRoad(self,h)));
+
+                    end
+                    else begin
+                      Action(EndTurn)
+                    end
+
+                  end
+
+
+
+
+
+
+                  | Some x -> Action(BuyBuild(BuildTown(x)))
+              end
+              else begin
+              
+            Action(EndTurn)
+              end
+            end
+
+            else begin
+              if total_cities_for_player ilist self < cMAX_CITIES_PER_PLAYER then begin
+                if can_afford_cost pinv cCOST_CITY then begin
+                
+            Action(EndTurn)
+                end
+                else begin
+              
+            Action(EndTurn)
+                end
+              end
+              else begin
+              
+            Action(EndTurn)
+              end
+            end
+
+
+          end
+        end
+      end
 end
 
 
