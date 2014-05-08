@@ -125,7 +125,10 @@ let update_resources_building_card b pLst col cd =
 	let cost_to_build = cost_of_build b in 
 	let player_index = list_indexof (fun (c,h,t) -> if (c = col) then true else false) pLst in
 	let (co,((b1,w1,o1,l1,g1), crds), trop) =  getIndexOf pLst player_index in
-	(co,(map_cost2 (-)(b1,w1,o1,l1,g1) cost_to_build,append_card crds cd),trop)::(list_memremove (fun (c,h,t) -> if (c = col) then true else false) pLst)
+	match crds with
+	|Reveal(crds1) ->
+	(co,(map_cost2 (-)(b1,w1,o1,l1,g1) cost_to_build,crds),trop)::(list_memremove (fun (c,h,t) -> if (c = col) then true else false) pLst)
+	|_ -> failwith "cards should not be hidden"
 
 
 let check_color_ad color piece  intersection= 
@@ -367,6 +370,14 @@ let below_max_city col interList =
  let fin_town_c = town_count interList in
  if (fin_town_c < cMAX_CITIES_PER_PLAYER) then true else false
 
+ let add_card_to_turn tn card_one = 
+ 	{active= tn.active; 
+    dicerolled= tn.dicerolled; cardplayed= tn.cardplayed; 
+    cardsbought= append_card tn.cardsbought card_one; 
+    tradesmade= tn.tradesmade; pendingtrade= tn.pendingtrade
+    	}
+
+
 (**handles build returns **)
 let build_method b  state1=
 	let ((((hex,port),strctures,dck, discd, robber),pLst, tn, nxt),gi) = state1 in 
@@ -387,7 +398,7 @@ let build_method b  state1=
 					match dck with
 					|Reveal(cardList) ->
 					 (let (card_one, deck_fin) = pick_one cardList in
-					(None,((((hex,port),(interList,rdList),wrap_reveal deck_fin, discd, robber),update_resources_building_card b pLst tn.active card_one, tn, ( tn.active, ActionRequest)),gi)))
+					(None,((((hex,port),(interList,rdList),wrap_reveal deck_fin, discd, robber),update_resources_building_card b pLst tn.active card_one, add_card_to_turn tn card_one, ( tn.active, ActionRequest)),gi)))
 					|_-> failwith "cards should not be hidden"
 				)
 				else (None,((((hex,port),(interList,rdList),dck, discd, robber),pLst, tn, ( tn.active, ActionRequest)),gi))
@@ -444,6 +455,13 @@ let update_card_played pc s =
   			|PlayYearOfPlenty(_) -> YearOfPlenty
   			|PlayMonopoly(_) -> Monopoly in
   		(w,((((hex,port),strctures,dck, card_just_played::discd, robber),pLst, card_played tn, nxt),gi))
+
+
+let update_cards_end_turn pLst tn=
+	let player_index = list_indexof (fun (c,h,t) -> if (c = tn.active) then true else false) pLst in
+	let (co,((b1,w1,o1,l1,g1), crds), trop) =  getIndexOf pLst player_index in
+	 (co,((b1,w1,o1,l1,g1), Reveal((reveal crds)@(reveal tn.cardsbought))),update_knight_by_one trop)::(list_memremove (fun (c,h,t) -> if (c = tn.active) then true else false) pLst)
+
 
 
 
