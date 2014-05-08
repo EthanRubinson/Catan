@@ -5,9 +5,9 @@ open Handlemethods
 
 
 
-let take_half (b,w,o,l,g)  = print_endline "begin take half";
+let take_half (b,w,o,l,g)  =
 	let num = ((sum_cost (b,w,o,l,g) )/2) in 
-	let rec take_half_helper (b1,w1,o1,l1,g1) counter= print_endline "happening";
+	let rec take_half_helper (b1,w1,o1,l1,g1) counter= 
 		if ((sum_cost (b1,w1,o1,l1,g1)) = (sum_cost (b,w,o,l,g) -num)) then (b1,w1,o1,l1,g1)
 		else (
 			let modnum = counter mod 5 in
@@ -95,8 +95,8 @@ let update_turn tn next =
 let check_road_connects c rdList p1 p2 = 
 	let rec check_helper rdList =
 	match rdList with
-	|[] -> (print_endline "road does not connect"); false 
-	|(color,(po1,po2))::t -> if (c = color && (po1 = p1 || po1 = p2 || po2 = p1 || po2 = p2)) then ((print_endline "road does connect"); true) else check_helper t in 
+	|[] ->  false 
+	|(color,(po1,po2))::t -> if (c = color && (po1 = p1 || po1 = p2 || po2 = p1 || po2 = p2)) then ( true) else check_helper t in 
 	check_helper rdList
 
 let rec check_town_to_city_update p1 interList c =
@@ -108,8 +108,8 @@ let rec check_town_to_city_update p1 interList c =
 let rec check_res_to_buy b inv= 
 	let cost_to_build = cost_of_build b in 
 	match (check_vals inv cost_to_build) with
-	|true -> print_endline " enough resources to buy road"; true
-	|false -> print_endline "not enough resources to buy road"; false
+	|true ->  true
+	|false ->  false
 
 let rec get_inv playerList col= 
 	let player_index = list_indexof (fun (c,h,t) -> if (c = col) then true else false) playerList in
@@ -168,7 +168,7 @@ let update_trophy pLst col:player list =
 let update_res_year_plenty res col pLst = 
  	let player_index = list_indexof (fun (c,h,t) -> if (c = col) then true else false) pLst in
 	let (co,((b1,w1,o1,l1,g1), crds), trop) =  getIndexOf pLst player_index in
-	(co,(map_cost2 (+) (single_resource_cost res )(b1,w1,o1,l1,g1),crds),update_knight_by_one trop)::(list_memremove (fun (c,h,t) -> if (c = col) then true else false) pLst)
+	(co,(map_cost2 (+) (single_resource_cost res )(b1,w1,o1,l1,g1),crds), trop)::(list_memremove (fun (c,h,t) -> if (c = col) then true else false) pLst)
 
 let setToZero (b1,w1,o1,l1,g1) res = 
 	match res with
@@ -273,7 +273,7 @@ let update_aproved pLst col (col1,cost1,cost2) =
 	(co_t,(map_cost2 (+) (map_cost2 (-) (b1_t,w1_t,o1_t,l1_t,g1_t) cost2) cost1, crds_t), trop_t)::final_remove_list
 
 let update_largest_army (pList:player list):player list = 
-	if (list_count (fun (co,((b1,w1,o1,l1,g1), crds), (knight,lroad, larm)) -> larm) pList = 0)
+	if (list_count (fun (co,((b1,w1,o1,l1,g1), crds), (knight,lroad, larm)) -> larm = true) pList = 0)
 	then 
 	(
 		if (list_count (fun (co,((b1,w1,o1,l1,g1), crds), (knight,lroad, larm)) -> knight >= cMIN_LARGEST_ARMY) pList > 0) then
@@ -303,7 +303,7 @@ let update_largest_army (pList:player list):player list =
 			)
 
 let update_longest_road rd interlst pList = 
-	if (list_count (fun (co,((b1,w1,o1,l1,g1), crds), (knight,lroad, larm)) -> lroad) pList = 0)
+	if (list_count (fun (co,((b1,w1,o1,l1,g1), crds), (knight,lroad, larm)) -> lroad = true) pList = 0)
 	then 
 	(
 		if (list_count (fun (co,((b1,w1,o1,l1,g1), crds), (knight,lroad, larm)) -> (longest_road co rd interlst) >= cMIN_LONGEST_ROAD) pList > 0) then
@@ -383,17 +383,17 @@ let build_method b  state1=
 	let ((((hex,port),strctures,dck, discd, robber),pLst, tn, nxt),gi) = state1 in 
 	let (interList, rdList) = strctures in
 	match b with
-	|BuildRoad(c,(p1,p2)) -> print_endline "building road";  if (valid_road_position rdList p1 p2 && check_road_connects c rdList p1 p2 && check_res_to_buy b (get_inv pLst tn.active) && valid_road_check_inter interList p1 tn.active && valid_road_check_inter interList p2 tn.active && below_max_roads tn.active rdList) 
+	|BuildRoad(c,(p1,p2)) ->  if (valid_road_position rdList p1 p2 && check_road_connects c rdList p1 p2 && check_res_to_buy b (get_inv pLst tn.active) && valid_road_check_inter interList p1 tn.active && valid_road_check_inter interList p2 tn.active && below_max_roads tn.active rdList) 
 				then 
 					(None,((((hex,port),(interList, (c,(p1,p2))::rdList),dck, discd, robber),update_longest_road ((c,(p1,p2))::rdList) interList (update_resources_building b pLst tn.active), tn, ( tn.active, ActionRequest)),gi))  
 				else  (None,((((hex,port),(interList,rdList),dck, discd, robber),pLst, tn, (tn.active, ActionRequest)),gi))
-	|BuildTown(t) -> print_endline "building town";  if (valid_town_spot  interList t && check_res_to_buy b (get_inv pLst tn.active) && check_town_connects_road rdList t tn.active && below_max_town tn.active interList) 
+	|BuildTown(t) -> if (valid_town_spot  interList t && check_res_to_buy b (get_inv pLst tn.active) && check_town_connects_road rdList t tn.active && below_max_town tn.active interList) 
 				then  (None,((((hex,port),((setIthEleSet  interList t Town tn.active),rdList),dck, discd, robber),update_resources_building b pLst tn.active, tn, ( tn.active, ActionRequest)),gi))  
 				else (None,((((hex,port),(interList,rdList),dck, discd, robber),pLst, tn, ( tn.active, ActionRequest)),gi))
-	|BuildCity(p) -> print_endline "building city"; if (check_town_to_city_update p interList tn.active && check_res_to_buy b (get_inv pLst tn.active) && below_max_city tn.active interList) 
+	|BuildCity(p) -> if (check_town_to_city_update p interList tn.active && check_res_to_buy b (get_inv pLst tn.active) && below_max_city tn.active interList) 
 				then  (None,((((hex,port),(setIthEleSet interList p City tn.active,rdList),dck, discd, robber),update_resources_building b pLst tn.active, tn, ( tn.active, ActionRequest)),gi))  
 				else (None,((((hex,port),(interList,rdList),dck, discd, robber),pLst, tn, ( tn.active, ActionRequest)),gi))
-	|BuildCard ->  print_endline "building card"; if (check_res_to_buy b (get_inv pLst tn.active)) 
+	|BuildCard -> if (check_res_to_buy b (get_inv pLst tn.active)) 
 				then (
 					match dck with
 					|Reveal(cardList) ->
@@ -434,7 +434,7 @@ let update_winner (s:'a outcome):'a outcome=
   		(let (col,hnd,troph) = h in
   		let (inv,crds) = hnd in
   		let (knight,lroad, larm) = troph in
-  		if ((tol_vic crds (knight,lroad, larm)) + (count_total_set intersList 0 col) >= 10) then  (None,((((hex,port),strctures,dck, discd, robber),pLst, tn, nxt),gi))
+  		if ((tol_vic crds (knight,lroad, larm)) + (count_total_set intersList 0 col) >= 10) then  (Some col,((((hex,port),strctures,dck, discd, robber),pLst, tn, nxt),gi))
   		else update_helper t )
   	in update_helper pLst
 
@@ -460,7 +460,7 @@ let update_card_played pc s =
 let update_cards_end_turn pLst tn=
 	let player_index = list_indexof (fun (c,h,t) -> if (c = tn.active) then true else false) pLst in
 	let (co,((b1,w1,o1,l1,g1), crds), trop) =  getIndexOf pLst player_index in
-	 (co,((b1,w1,o1,l1,g1), Reveal((reveal crds)@(reveal tn.cardsbought))),update_knight_by_one trop)::(list_memremove (fun (c,h,t) -> if (c = tn.active) then true else false) pLst)
+	 (co,((b1,w1,o1,l1,g1), Reveal((reveal crds)@(reveal tn.cardsbought))), trop)::(list_memremove (fun (c,h,t) -> if (c = tn.active) then true else false) pLst)
 
 
 
