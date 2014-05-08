@@ -42,21 +42,21 @@ let handle_move s m =
   let (nxtColor, req) = nxt in 
   let (w,((map,pl,t,n),gi)) = ( 
 	match m with
-	|InitialMove(p1,p2) -> let (w,((m,pl,t,n),gi)) = (print_endline "InitialMove";
-    update_winner(let p1 = (if (valid_town_spot intersList p1) then (print_endline "Valid_Intersection"; p1) 
-      else (print_endline "inValid_Intersection"; random_open_town_spot intersList)) in
+	|InitialMove(p1,p2) -> let (w,((m,pl,t,n),gi)) = (
+    update_winner(let p1 = (if (valid_town_spot intersList p1) then ( p1) 
+      else (random_open_town_spot intersList)) in
 		
 					let newInterList = setIthEleSet intersList p1 Town tn.active  in 
 					if ((adacentpoints p1 p2) && (valid_road_position rdList p1 p2 )) then
 					(**ROAD IS VALID MOVE**)
-					( print_endline "Valid_road";
+					( 
             let newrd = (tn.active,(p1,p2))::rdList in
 						(None,((((hex,port),(newInterList, newrd),dck, discd, robber),(update_resources pLst tn.active newInterList newrd p1 hex), 
           update_next_turn_color tn newrd, update_next tn newrd),gi))
 					)
 					else (**ROAD IS NOT VALID**)
 					(
-              print_endline "inValid_road";
+             
               let newrd = rdList@(random_road p1 rdList tn.active) in
 						 (None,((((hex,port),(newInterList,newrd),dck, discd, robber),(update_resources pLst tn.active newInterList newrd p1 hex), 
             update_next_turn_color tn newrd, update_next tn newrd),gi))
@@ -75,7 +75,7 @@ let handle_move s m =
                 else (None,((((hex,port),strctures,dck, discd, piece1),pLst, update_turn tn nxt, ( tn.active, ActionRequest)),gi)) 
               ) in (w,((m,pl,t,n),gi))
 	|DiscardMove(cost1) -> 
-      let (w,((m,pl,t,n),gi)) = (print_endline "discardMove"; 
+      let (w,((m,pl,t,n),gi)) = (
 	    let nPlayList = discard_cost cost1 nxtColor pLst in 
 	    if (next_turn nxtColor = tn.active) then
 	    ((None,((((hex,port),strctures,dck, discd, robber), nPlayList, tn, (tn.active, RobberRequest)),gi)))
@@ -97,19 +97,19 @@ let handle_move s m =
 			) 
       in  (w,((m,pl,t,n),gi))
 	|Action(a) -> 
-    (print_endline "action move";
+    (
     match a with
-    |RollDice -> print_endline "dice roll";
+    |RollDice -> 
       let dr = random_roll () in 
-      if  (dr = cROBBER_ROLL) then ((print_endline "robber roll"); 
+      if  (dr = cROBBER_ROLL) then (
         let check_discard = check_player_lst_discard pLst tn.active tn.active in 
         match check_discard with
         |None -> (None,((((hex,port),strctures,dck, discd, robber), pLst, tn, (tn.active, RobberRequest)),gi))
         |Some c -> (None,((((hex,port),strctures,dck, discd, robber), pLst, update_dice tn dr, (c, DiscardRequest)),gi))) 
-      else ((print_endline "non robber roll"); 
+      else (
       (None, ((((hex,port),strctures,dck, discd, robber), 
         update_resources_playerlist dr pLst intersList hex robber, update_dice tn dr, ( tn.active, ActionRequest)),gi)))
-    |MaritimeTrade (m) -> print_endline "maritimeTrade";
+    |MaritimeTrade (m) -> 
     (
     	let (res1, res2) = m in
     		match (play_owns_port tn.active intersList port res1) with
@@ -120,7 +120,7 @@ let handle_move s m =
     				(None, ((((hex,port),strctures,dck, discd, robber), 
         			newpList,  newtn, (tn.active, ActionRequest)),gi))
     )
-    |DomesticTrade (d)-> print_endline "domestic Trade";
+    |DomesticTrade (d)-> 
     	(
     		let (col, cost1, cost2) = d in
     		if (tn.tradesmade = cNUM_TRADES_PER_TURN)
@@ -136,8 +136,8 @@ let handle_move s m =
 	        			pLst,  tn, (tn.active, ActionRequest)),gi))
     			)
     	)
-    |BuyBuild (b)-> print_endline "building action";  update_winner(build_method b s)
-    |PlayCard (pc)-> print_endline "playcard";
+    |BuyBuild (b)->   update_winner(build_method b s)
+    |PlayCard (pc)-> 
       if (tn.cardplayed) then (None,s) else
       (
       update_winner(update_card_played pc (match pc with
@@ -181,14 +181,14 @@ let handle_move s m =
       |PlayMonopoly(res) -> 
             (None,((((hex,port),(intersList,rdList),dck, discd, robber), update_res_monoploy res tn.active pLst , tn, ( tn.active, ActionRequest)),gi)))
       ))
-    |EndTurn -> (print_endline "end turn";  (update_winner (None, ((((hex,port),strctures,dck, discd, robber),update_cards_end_turn pLst tn, (new_turn (next_turn tn.active)), (next_turn tn.active, ActionRequest)),gi))))
+    |EndTurn -> ( (update_winner (None, ((((hex,port),strctures,dck, discd, robber),update_cards_end_turn pLst tn, (new_turn (next_turn tn.active)), (next_turn tn.active, ActionRequest)),gi))))
       )
     )
    in  
    ( 
-   (** match (printer(print_board(map)),printer (print_code_of_state_nowait (map,pl,t,n)), (w,((map,pl,t,n),gi)))
+   (**match (printer(print_board(map)),printer (print_code_of_state_nowait (map,pl,t,n)), (w,((map,pl,t,n),gi)))
     with
-    |_,_,t -> t **) printer(print_board(map)); (w,((map,pl,t,n),gi))
+    |_,_,t -> t **) (w,((map,pl,t,n),gi))
    )
 
 let presentation g =  
