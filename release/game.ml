@@ -32,7 +32,7 @@ let game_of_state s =
   (s,gameI)
 
 
-let init_game () = game_of_state (gen_random_initial_state())
+let init_game () = game_of_state (gen_initial_state())
 
 
 let handle_move s m = 
