@@ -66,8 +66,7 @@ let handle_move s m =
 			
 	|RobberMove(piece,colorOp) -> 
               let (w,((m,pl,t,n),gi)) =  (
-                let list_rand = [0;1;2;3;4;5;6;7;8;9;10;11;12;13;14;15;16;17;18] in
-                let rand_num = match (pick_random list_rand) with |Some x -> x |None -> failwith "should not happen" in
+                let rand_num = match (pick_random [0;1;2;3;4;5;6;7;8;9;10;11;12;13;14;15;16;17;18]) with |Some x -> x |None -> failwith "should not happen - list rand" in
                 let piece1 = if (piece > -1 && piece < 19) then piece else rand_num in
                 match colorOp with 
                 |None ->  (None,((((hex,port),strctures,dck, discd, piece1),pLst, update_turn tn nxt, ( tn.active, ActionRequest)),gi)) 
@@ -182,14 +181,14 @@ let handle_move s m =
       |PlayMonopoly(res) -> 
             (None,((((hex,port),(intersList,rdList),dck, discd, robber), update_res_monoploy res tn.active pLst , tn, ( tn.active, ActionRequest)),gi)))
       ))
-    |EndTurn -> (print_endline "end turn";  (update_winner (None, ((((hex,port),strctures,dck, discd, robber),pLst, (new_turn (next_turn tn.active)), (next_turn tn.active, ActionRequest)),gi))))
+    |EndTurn -> (print_endline "end turn";  (update_winner (None, ((((hex,port),strctures,dck, discd, robber),update_cards_end_turn pLst tn, (new_turn (next_turn tn.active)), (next_turn tn.active, ActionRequest)),gi))))
       )
     )
    in  
    ( 
-    (**match (printer(print_board(map)),printer (print_code_of_state_nowait (map,pl,t,n)), (w,((map,pl,t,n),gi)))
+   (** match (printer(print_board(map)),printer (print_code_of_state_nowait (map,pl,t,n)), (w,((map,pl,t,n),gi)))
     with
-    |_,_,t -> t **) (w,((map,pl,t,n),gi))
+    |_,_,t -> t **) printer(print_board(map)); (w,((map,pl,t,n),gi))
    )
 
 let presentation g =  
